@@ -191,11 +191,27 @@ export async function exitApp() {
   return invoke("exit_app");
 }
 
+export async function exportDiagnosticInfo() {
+  return invoke("export_diagnostic_info");
+}
+
 export async function copyIconFile(
   path: string,
   name: "common" | "sysproxy" | "tun",
 ) {
-  return invoke<void>("copy_icon_file", { path, name });
+  const key = `icon_${name}_update_time`;
+  const previousTime = localStorage.getItem(key) || "";
+
+  const currentTime = String(Date.now());
+  localStorage.setItem(key, currentTime);
+
+  const iconInfo = {
+    name,
+    previous_t: previousTime,
+    current_t: currentTime,
+  };
+
+  return invoke<void>("copy_icon_file", { path, iconInfo });
 }
 
 export async function downloadIconCache(url: string, name: string) {
@@ -249,3 +265,13 @@ export async function scriptValidateNotice(status: string, msg: string) {
 export async function validateScriptFile(filePath: string) {
   return invoke<boolean>("validate_script_file", { filePath });
 }
+
+// 获取当前运行模式
+export const getRunningMode = async () => {
+  return invoke<string>("get_running_mode");
+};
+
+// 安装/重装系统服务
+export const installService = async () => {
+  return invoke<void>("install_service");
+};

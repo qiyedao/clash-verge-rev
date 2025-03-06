@@ -2,6 +2,8 @@ use crate::config::IVerge;
 use crate::utils::error;
 use crate::{config::Config, config::PrfItem, core::*, utils::init, utils::server};
 use crate::{log_err, wrap_err};
+#[cfg(target_os = "macos")]
+use crate::AppHandleManager;
 use anyhow::{bail, Result};
 use once_cell::sync::OnceCell;
 use percent_encoding::percent_decode_str;
@@ -37,7 +39,10 @@ pub fn find_unused_port() -> Result<u16> {
 pub async fn resolve_setup(app: &mut App) {
     error::redirect_panic_to_log();
     #[cfg(target_os = "macos")]
-    app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+    {
+        AppHandleManager::global().init(app.app_handle().clone());
+        AppHandleManager::global().set_activation_policy_accessory();
+    }
     let version = app.package_info().version.to_string();
 
     handle::Handle::global().init(app.app_handle());
@@ -72,14 +77,12 @@ pub async fn resolve_setup(app: &mut App) {
                         }
                     }
                     if !service_runing {
-                        log::error!(target: "app", "service not runing. exit");
-                        app.app_handle().exit(-2);
+                        log::warn!(target: "app", "service not running, will fallback to user mode");
                     }
                 }
             }
             Err(e) => {
-                log::error!(target: "app", "{e:?}");
-                app.app_handle().exit(-1);
+                log::warn!(target: "app", "failed to install service: {e:?}, will fallback to user mode");
             }
         }
     }
@@ -130,6 +133,8 @@ pub fn create_window() {
     log::info!(target: "app", "Starting to create window");
 
     let app_handle = handle::Handle::global().app_handle().unwrap();
+    #[cfg(target_os = "macos")]
+    AppHandleManager::global().set_activation_policy_regular();
 
     if let Some(window) = handle::Handle::global().get_window() {
         println!("Found existing window, trying to show it");
